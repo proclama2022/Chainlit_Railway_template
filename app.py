@@ -23,7 +23,7 @@ client = AsyncOpenAI(api_key=api_key)
 assistant_id = os.environ.get("ASSISTANT_ID")
 
 # List of allowed mime types
-allowed_mime = ["text/csv", "application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+allowed_mime = ["text/csv", "application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/json"]
 
 
 # Check if the files uploaded are allowed
