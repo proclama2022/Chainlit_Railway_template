@@ -5,10 +5,10 @@ from datetime import datetime
 from typing import Dict, Any, List
 from openai import AsyncOpenAI
 from openai.types.beta import Thread
+from openai.types.beta.thread_create_and_run_params import ThreadMessage
 from openai.types.beta.threads import (
-    MessageContentImageFile,
-    MessageContentText,
-    ThreadMessage,
+    TextContentBlock, 
+    ImageFileContentBlock
 )
 from openai.types.beta.threads.runs import RunStep
 from openai.types.beta.threads.runs.tool_calls_step_details import ToolCall
@@ -23,8 +23,10 @@ client = AsyncOpenAI(api_key=api_key)
 assistant_id = os.environ.get("ASSISTANT_ID")
 
 # List of allowed mime types
-allowed_mime = ["text/csv", "application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/json"]
+allowed_mime = ["text/csv", "application/pdf",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/json"]
 
+files_ids = []
 
 # Check if the files uploaded are allowed
 async def check_files(files: List[Element]):
@@ -66,7 +68,7 @@ async def process_thread_message(
 ):
     for idx, content_message in enumerate(thread_message.content):
         id = thread_message.id + str(idx)
-        if isinstance(content_message, MessageContentText):
+        if isinstance(content_message, TextContentBlock):
             if id in message_references:
                 msg = message_references[id]
                 msg.content = content_message.text.value
@@ -76,9 +78,9 @@ async def process_thread_message(
                     author=thread_message.role, content=content_message.text.value
                 )
                 await message_references[id].send()
-        elif isinstance(content_message, MessageContentImageFile):
+        elif isinstance(content_message, ImageFileContentBlock):
             image_id = content_message.image_file.file_id
-            response = await client.files.with_raw_response.retrieve_content(image_id)
+            response = await client.files.with_raw_response.content(image_id)
             elements = [
                 cl.Image(
                     name=image_id,
@@ -151,14 +153,31 @@ class DictToObject:
 async def start_chat():
     thread = await client.beta.threads.create()
     cl.user_session.set("thread", thread)
+
+    files = None
+
+    # Wait for the user to upload a file
+    while files == None:
+        files = await cl.AskFileMessage(
+            author="Sincrobank",
+            content="Carica un Excel Sincrobank per iniziare!",
+            accept=[
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+            disable_feedback=True,
+        ).send()
+
+    global files_ids
+    files_ids = []
+    file_id = await upload_files(files)
+    files_ids = files_ids + file_id
+
+     # Let the user know that the system is ready
     await cl.Message(
-        author="assistant",
-        content="Ask me math or weather questions!",
-        disable_feedback=True,
+        content=f"`{files[0].name}` caricato correttamente!"
     ).send()
 
 
-@cl.step(name="Assistant", type="run", root=True)
+@cl.step(name="Sincrobank", type="run", root=True)
 async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
     # Add the message to the thread
     init_message = await client.beta.threads.messages.create(
@@ -234,7 +253,8 @@ async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
 
                     elif tool_call.type == "function":
                         function_name = tool_call.function.name
-                        function_args = json.loads(tool_call.function.arguments)
+                        function_args = json.loads(
+                            tool_call.function.arguments)
 
                         function_output = tool_map[function_name](
                             **json.loads(tool_call.function.arguments)
@@ -251,7 +271,8 @@ async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
                         )
 
                         tool_outputs.append(
-                            {"output": function_output, "tool_call_id": tool_call.id}
+                            {"output": function_output,
+                                "tool_call_id": tool_call.id}
                         )
             if (
                 run.status == "requires_action"
@@ -271,7 +292,9 @@ async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
 @cl.on_message
 async def on_message(message_from_ui: cl.Message):
     thread = cl.user_session.get("thread")  # type: Thread
-    files_ids = await process_files(message_from_ui.elements)
+    file_id = await process_files(message_from_ui.elements)
+    global files_ids
+    files_ids = files_ids + file_id
     await run(
         thread_id=thread.id, human_query=message_from_ui.content, file_ids=files_ids
     )
