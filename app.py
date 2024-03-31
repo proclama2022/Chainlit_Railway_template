@@ -13,7 +13,7 @@ from openai.types.beta.threads import (
 from openai.types.beta.threads.runs import RunStep
 from openai.types.beta.threads.runs.tool_calls_step_details import ToolCall
 from create_assistant import tool_map
-
+from typing import Optional
 from chainlit.element import Element
 import chainlit as cl
 
@@ -153,6 +153,7 @@ class DictToObject:
 async def start_chat():
     thread = await client.beta.threads.create()
     cl.user_session.set("thread", thread)
+    cl.user_session.set("counter", 0)
 
     files = None
 
@@ -291,10 +292,17 @@ async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
 
 @cl.on_message
 async def on_message(message_from_ui: cl.Message):
-    thread = cl.user_session.get("thread")  # type: Thread
+    thread = cl.user_session.get("thread")
+    counter = cl.user_session.get("counter")
+    counter += 1
+    cl.user_session.set("counter", counter)
     file_id = await process_files(message_from_ui.elements)
     global files_ids
     files_ids = files_ids + file_id
     await run(
         thread_id=thread.id, human_query=message_from_ui.content, file_ids=files_ids
     )
+
+@cl.on_chat_end
+async def end_chat():
+    print("Chat ended", cl.user_session.get("id"))
