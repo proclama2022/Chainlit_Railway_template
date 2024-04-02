@@ -394,9 +394,11 @@ app.add_middleware(
 )
 
 @app.post("/token")
-def create_jwt(request: Request):
-    user = request.body.get('user')
-    record = request.body.get('record')
+async def create_jwt(request: Request):
+    data = await request.json()
+    print(data)
+    user = data.get('user')
+    record = data.get('record')
     if user and record:
         to_encode = {
         "identifier": user,
