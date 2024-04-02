@@ -16,8 +16,12 @@ from create_assistant import tool_map
 from typing import Optional
 from chainlit.element import Element
 import chainlit as cl
+from chainlit.server import app
+from fastapi import Request
 import pyairtable
 from urllib.parse import urlparse, parse_qs
+import jwt
+from datetime import datetime, timedelta
 
 
 api_key = os.environ.get("OPENAI_API_KEY")
@@ -365,3 +369,15 @@ async def end_chat():
             await client.files.delete(file_id)
             print(f"File {file_id} deleted")
     print("Chat ended", cl.user_session.get("id"))
+
+@app.get("/token")
+def create_jwt(request: Request):
+    user = request.query_params.get('user') 
+    record = request.query_params.get('record')
+    to_encode = {
+      "identifier": user,
+      "metadata": {"record": record},
+      "exp": datetime.now(datetime.UTC) + timedelta(minutes=60),  # 1 hour
+      }
+    encoded_jwt = jwt.encode(to_encode, os.environ.get("CHAINLIT_AUTH_SECRET"), algorithm="HS256")
+    return encoded_jwt
