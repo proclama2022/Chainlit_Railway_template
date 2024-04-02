@@ -379,10 +379,7 @@ origins = [
     "http://www.sincrobank.it",
     "https://www.sincrobank.it",
     "http://sincrobank.it",
-    "https://sincrobank.it",
-    "http://localhost",
-    "http://localhost:3000",
-    "http://localhost:8000",
+    "https://sincrobank.it"
 ]
 
 app.add_middleware(
@@ -396,7 +393,6 @@ app.add_middleware(
 @app.post("/token")
 async def create_jwt(request: Request):
     data = await request.json()
-    print(data)
     user = data.get('user')
     record = data.get('record')
     if user and record:
