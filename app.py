@@ -393,10 +393,10 @@ app.add_middleware(
     allow_headers=["*"],  # Permette tutti gli headers
 )
 
-@app.get("/token")
+@app.post("/token")
 def create_jwt(request: Request):
-    user = request.query_params.get('user') 
-    record = request.query_params.get('record')
+    user = request.body.get('user')
+    record = request.body.get('record')
     if user and record:
         to_encode = {
         "identifier": user,
