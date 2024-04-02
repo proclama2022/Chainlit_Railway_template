@@ -23,6 +23,7 @@ import pyairtable
 from urllib.parse import urlparse, parse_qs
 import jwt
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 api_key = os.environ.get("OPENAI_API_KEY")
@@ -394,7 +395,7 @@ def create_jwt(request: Request):
     to_encode = {
       "identifier": user,
       "metadata": {"record": record},
-      "exp": datetime.now(datetime.UTC) + timedelta(minutes=60),  # 1 hour
+      "exp": datetime.now(ZoneInfo('UTC')) + timedelta(minutes=60)
       }
     encoded_jwt = jwt.encode(to_encode, os.environ.get("CHAINLIT_AUTH_SECRET"), algorithm="HS256")
     return encoded_jwt
