@@ -380,6 +380,9 @@ origins = [
     "https://www.sincrobank.it",
     "http://sincrobank.it",
     "https://sincrobank.it",
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:8000",
 ]
 
 app.add_middleware(
@@ -394,11 +397,15 @@ app.add_middleware(
 def create_jwt(request: Request):
     user = request.query_params.get('user') 
     record = request.query_params.get('record')
-    to_encode = {
-      "identifier": user,
-      "metadata": {"record": record},
-      "exp": datetime.now(ZoneInfo('UTC')) + timedelta(minutes=60)
-      }
-    encoded_jwt = jwt.encode(to_encode, os.environ.get("CHAINLIT_AUTH_SECRET"), algorithm="HS256")
-    print(f"Token creato correttamente! {encoded_jwt}")
-    return encoded_jwt
+    if user and record:
+        to_encode = {
+        "identifier": user,
+        "metadata": {"record": record},
+        "exp": datetime.now(ZoneInfo('UTC')) + timedelta(minutes=60)
+        }
+        encoded_jwt = jwt.encode(to_encode, os.environ.get("CHAINLIT_AUTH_SECRET"), algorithm="HS256")
+        print(f"Token creato correttamente! {encoded_jwt}")
+        return encoded_jwt
+    else:
+        return "Errore nella creazione del token"
+
