@@ -184,8 +184,10 @@ async def header_auth_callback(headers: Dict) -> Optional[cl.User]:
   user_data = await get_airtable_data(record_value)
 
   if user_data:
+    print(f"User {user_data['fields'].get('Name')} authenticated successfully!")
     return cl.User(identifier=user_data["fields"].get('Name'), metadata={"record": record_value})
   else:
+    print("User not authenticated!")
     return None
 
 @cl.on_chat_start
@@ -398,4 +400,5 @@ def create_jwt(request: Request):
       "exp": datetime.now(ZoneInfo('UTC')) + timedelta(minutes=60)
       }
     encoded_jwt = jwt.encode(to_encode, os.environ.get("CHAINLIT_AUTH_SECRET"), algorithm="HS256")
+    print(f"Token creato correttamente! {encoded_jwt}")
     return encoded_jwt
