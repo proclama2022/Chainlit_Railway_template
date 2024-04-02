@@ -16,6 +16,8 @@ from create_assistant import tool_map
 from typing import Optional
 from chainlit.element import Element
 import chainlit as cl
+import pyairtable
+from urllib.parse import urlparse, parse_qs
 
 
 api_key = os.environ.get("OPENAI_API_KEY")
@@ -27,6 +29,15 @@ allowed_mime = ["text/csv", "application/pdf",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/json"]
 
 files_ids = []
+
+
+API_KEY = 'patNGGF2SE0aMPe0q.9ffb4220c5a673c8784a715d274181447bd7c9689dc3297e7d842b956972ae8c'
+BASE_ID = 'appFMt6Nbno4JDTUp'
+TABLE_NAME = 'tblD6llM9pssdL7DH'
+
+# Crea il client per Airtable
+airtable_client = pyairtable.Api(API_KEY)
+
 
 # Check if the files uploaded are allowed
 async def check_files(files: List[Element]):
@@ -136,6 +147,15 @@ async def process_tool_call(
     else:
         await cl_step.send()
 
+async def get_airtable_data(record):
+    airtable_data = airtable_client.base(BASE_ID).table(TABLE_NAME).get(record)
+    return airtable_data
+
+async def add_user_message(record):
+    user_data = await get_airtable_data(record)
+    airtable_client.base(BASE_ID).table(TABLE_NAME).update(record, {'Messaggi utilizzati': user_data['fields']['Messaggi utilizzati'] + 1})
+    print("Messaggio conteggiato correttamente!")
+    return
 
 class DictToObject:
     def __init__(self, dictionary):
@@ -148,34 +168,61 @@ class DictToObject:
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in self.__dict__.items())
 
+@cl.header_auth_callback
+async def header_auth_callback(headers: Dict) -> Optional[cl.User]:
+  # Verify the signature of a token in the header (ex: jwt token)
+  # or check that the value is matching a row from your database
+  referer_url = headers.get("referer")
+  parsed_url = urlparse(referer_url)
+  query_string = parsed_url.query
+  # Estrazione del valore del parametro 'record' dalla query
+  query_params = parse_qs(query_string)
+  record_value = query_params.get('record', [None])[0]
+  user_data = await get_airtable_data(record_value)
+
+  if user_data:
+    return cl.User(identifier=user_data["fields"].get('Name'), metadata={"record": record_value})
+  else:
+    return None
 
 @cl.on_chat_start
 async def start_chat():
-    thread = await client.beta.threads.create()
-    cl.user_session.set("thread", thread)
-    cl.user_session.set("counter", 0)
-
     files = None
+    user = cl.user_session.get("user")
+    airtable_data = await get_airtable_data(user.metadata.get("record"))
+    remaining_messages = airtable_data["fields"].get("Messaggi rimanenti", 0)
 
-    # Wait for the user to upload a file
-    while files == None:
-        files = await cl.AskFileMessage(
-            author="Sincrobank",
-            content="Carica un Excel Sincrobank per iniziare!",
-            accept=[
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
-            disable_feedback=True,
+    if remaining_messages > 0:
+        thread = await client.beta.threads.create()
+        cl.user_session.set("messaggi_rimanenti", remaining_messages)
+        cl.user_session.set("thread", thread)
+        await cl.Message(
+                author="Sincrobank",
+                content=f"Ciao {user.identifier}! Questo mese hai ancora {remaining_messages} messaggi disponibili."
+            ).send()
+        # Wait for the user to upload a file
+        while files == None:
+            files = await cl.AskFileMessage(
+                author="Sincrobank",
+                content="Carica un Excel Sincrobank per iniziare!",
+                accept=[
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+                disable_feedback=True,
+            ).send()
+        global files_ids
+        files_ids = []
+        file_id = await upload_files(files)
+        files_ids = files_ids + file_id
+
+        # Let the user know that the system is ready
+        await cl.Message(
+            content=f"`{files[0].name}` caricato correttamente!"
         ).send()
-
-    global files_ids
-    files_ids = []
-    file_id = await upload_files(files)
-    files_ids = files_ids + file_id
-
-     # Let the user know that the system is ready
-    await cl.Message(
-        content=f"`{files[0].name}` caricato correttamente!"
-    ).send()
+    else:
+        await cl.Message(
+            author="Sincrobank",
+            content=f"Ciao {user.identifier}! Hai esaurito i messaggi disponibili per questo mese. Effettua l'[upgrade](/upgrade) del tuo piano per continuare a usare Sincrobank AI."
+        ).send()
 
 
 @cl.step(name="Sincrobank", type="run", root=True)
@@ -293,16 +340,28 @@ async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
 @cl.on_message
 async def on_message(message_from_ui: cl.Message):
     thread = cl.user_session.get("thread")
-    counter = cl.user_session.get("counter")
-    counter += 1
-    cl.user_session.set("counter", counter)
-    file_id = await process_files(message_from_ui.elements)
-    global files_ids
-    files_ids = files_ids + file_id
-    await run(
-        thread_id=thread.id, human_query=message_from_ui.content, file_ids=files_ids
-    )
+    messaggi_rimanenti = cl.user_session.get("messaggi_rimanenti")
+    if messaggi_rimanenti > 0:
+        messaggi_rimanenti = messaggi_rimanenti - 1
+        cl.user_session.set("messaggi_rimanenti", messaggi_rimanenti)
+        await add_user_message(cl.user_session.get("user").metadata.get("record"))
+        file_id = await process_files(message_from_ui.elements)
+        global files_ids
+        files_ids = files_ids + file_id
+        await run(
+            thread_id=thread.id, human_query=message_from_ui.content, file_ids=files_ids
+        )
+    else:
+        await cl.Message(
+            author="Sincrobank",
+            content="Hai esaurito i messaggi disponibili per questo mese. Effettua l'[upgrade](/upgrade) del tuo piano per continuare a usare Sincrobank AI."
+        ).send()
+    
 
 @cl.on_chat_end
 async def end_chat():
+    global files_ids
+    for file_id in files_ids:
+        await client.files.delete(file_id)
+        print(f"File {file_id} deleted")
     print("Chat ended", cl.user_session.get("id"))
