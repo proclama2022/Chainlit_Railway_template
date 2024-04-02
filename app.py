@@ -18,6 +18,7 @@ from chainlit.element import Element
 import chainlit as cl
 from chainlit.server import app
 from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
 import pyairtable
 from urllib.parse import urlparse, parse_qs
 import jwt
@@ -369,6 +370,22 @@ async def end_chat():
             await client.files.delete(file_id)
             print(f"File {file_id} deleted")
     print("Chat ended", cl.user_session.get("id"))
+
+# Lista dei domini autorizzati
+origins = [
+    "http://www.sincrobank.it",
+    "https://www.sincrobank.it",
+    "http://sincrobank.it",
+    "https://sincrobank.it",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Domini che possono fare richieste
+    allow_credentials=True,  # Permette i cookie
+    allow_methods=["*"],  # Permette tutti i metodi
+    allow_headers=["*"],  # Permette tutti gli headers
+)
 
 @app.get("/token")
 def create_jwt(request: Request):
