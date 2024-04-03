@@ -8,10 +8,10 @@ WORKDIR /app
 COPY . /app
 
 # Install any needed dependencies specified in requirements.txt
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 # Set environment variables
 ENV PYTHONUNBUFFERED 1
 
 # Command to run the app
-CMD python -m chainlit run app.py -h --host 0.0.0.0 --port ${PORT}
+CMD python3 -m chainlit run app.py -h --host 0.0.0.0 --port ${PORT}
