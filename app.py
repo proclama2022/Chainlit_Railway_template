@@ -7,7 +7,7 @@ from openai import AsyncOpenAI
 from openai.types.beta import Thread
 from openai.types.beta.thread_create_and_run_params import ThreadMessage
 from openai.types.beta.threads import (
-    TextContentBlock, 
+    TextContentBlock,
     ImageFileContentBlock
 )
 from openai.types.beta.threads.runs import RunStep
@@ -150,15 +150,19 @@ async def process_tool_call(
     else:
         await cl_step.send()
 
+
 async def get_airtable_data(record):
     airtable_data = airtable_client.base(BASE_ID).table(TABLE_NAME).get(record)
     return airtable_data
 
+
 async def add_user_message(record):
     user_data = await get_airtable_data(record)
-    airtable_client.base(BASE_ID).table(TABLE_NAME).update(record, {'Messaggi utilizzati': user_data['fields']['Messaggi utilizzati'] + 1})
+    airtable_client.base(BASE_ID).table(TABLE_NAME).update(
+        record, {'Messaggi utilizzati': user_data['fields']['Messaggi utilizzati'] + 1})
     print("Messaggio conteggiato correttamente!")
     return
+
 
 class DictToObject:
     def __init__(self, dictionary):
@@ -171,24 +175,27 @@ class DictToObject:
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in self.__dict__.items())
 
+
 @cl.header_auth_callback
 async def header_auth_callback(headers: Dict) -> Optional[cl.User]:
-  # Verify the signature of a token in the header (ex: jwt token)
-  # or check that the value is matching a row from your database
-  referer_url = headers.get("referer")
-  parsed_url = urlparse(referer_url)
-  query_string = parsed_url.query
-  # Estrazione del valore del parametro 'record' dalla query
-  query_params = parse_qs(query_string)
-  record_value = query_params.get('record', [None])[0]
-  user_data = await get_airtable_data(record_value)
+    # Verify the signature of a token in the header (ex: jwt token)
+    # or check that the value is matching a row from your database
+    referer_url = headers.get("referer")
+    parsed_url = urlparse(referer_url)
+    query_string = parsed_url.query
+    # Estrazione del valore del parametro 'record' dalla query
+    query_params = parse_qs(query_string)
+    record_value = query_params.get('record', [None])[0]
+    user_data = await get_airtable_data(record_value)
 
-  if user_data:
-    print(f"User {user_data['fields'].get('Name')} authenticated successfully!")
-    return cl.User(identifier=user_data["fields"].get('Name'), metadata={"record": record_value})
-  else:
-    print("User not authenticated!")
-    return None
+    if user_data:
+        print(
+            f"User {user_data['fields'].get('Name')} authenticated successfully!")
+        return cl.User(identifier=user_data["fields"].get('Name'), metadata={"record": record_value})
+    else:
+        print("User not authenticated!")
+        return None
+
 
 @cl.on_chat_start
 async def start_chat():
@@ -204,13 +211,13 @@ async def start_chat():
         cl.user_session.set("files_ids", [])
         files_ids = cl.user_session.get("files_ids")
         await cl.Message(
-                author="Sincrobank",
-                content=f"Ciao {user.identifier}! Questo mese hai ancora {remaining_messages} messaggi disponibili."
-            ).send()
+            author="Sincrobank AI",
+            content=f"Ciao {user.identifier}! Questo mese hai ancora {remaining_messages} messaggi disponibili."
+        ).send()
         # Wait for the user to upload a file
         while not files:
             files = await cl.AskFileMessage(
-                author="Sincrobank",
+                author="Sincrobank AI",
                 content="Carica un Excel Sincrobank per iniziare!",
                 accept=[
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
@@ -222,11 +229,11 @@ async def start_chat():
 
         # Let the user know that the system is ready
         await cl.Message(
-            content=f"`{files[0].name}` caricato correttamente!"
+            content=f"`{files[0].name}` caricato correttamente. Chiedimi qualcosa!"
         ).send()
     else:
         await cl.Message(
-            author="Sincrobank",
+            author="Sincrobank AI",
             content=f"Ciao {user.identifier}! Hai esaurito i messaggi disponibili per questo mese. Effettua l'[upgrade](/upgrade) del tuo piano per continuare a usare Sincrobank AI."
         ).send()
 
@@ -360,10 +367,10 @@ async def on_message(message_from_ui: cl.Message):
         )
     else:
         await cl.Message(
-            author="Sincrobank",
+            author="Sincrobank AI",
             content="Hai esaurito i messaggi disponibili per questo mese. Effettua l'[upgrade](/upgrade) del tuo piano per continuare a usare Sincrobank AI."
         ).send()
-    
+
 
 @cl.on_chat_end
 async def end_chat():
@@ -390,6 +397,7 @@ app.add_middleware(
     allow_headers=["*"],  # Permette tutti gli headers
 )
 
+
 @app.post("/token")
 async def create_jwt(request: Request):
     data = await request.json()
@@ -397,13 +405,13 @@ async def create_jwt(request: Request):
     record = data.get('record')
     if user and record:
         to_encode = {
-        "identifier": user,
-        "metadata": {"record": record},
-        "exp": datetime.now(ZoneInfo('UTC')) + timedelta(minutes=60)
+            "identifier": user,
+            "metadata": {"record": record},
+            "exp": datetime.now(ZoneInfo('UTC')) + timedelta(minutes=60)
         }
-        encoded_jwt = jwt.encode(to_encode, os.environ.get("CHAINLIT_AUTH_SECRET"), algorithm="HS256")
+        encoded_jwt = jwt.encode(to_encode, os.environ.get(
+            "CHAINLIT_AUTH_SECRET"), algorithm="HS256")
         print(f"Token creato correttamente! {encoded_jwt}")
         return encoded_jwt
     else:
         return "Errore nella creazione del token"
-
