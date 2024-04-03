@@ -384,6 +384,7 @@ async def end_chat():
         for file_id in files_ids:
             await client.files.delete(file_id)
             print(f"File {file_id} deleted")
+    cl.user_session.set("files_ids", [])
     print("Chat ended", cl.user_session.get("id"))
 
 # Lista dei domini autorizzati
