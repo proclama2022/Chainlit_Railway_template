@@ -387,9 +387,8 @@ origins = [
     "https://www.sincrobank.it",
     "http://sincrobank.it",
     "https://sincrobank.it",
-    "http://randy2783.preview.softr.app/",
-    "https://randy2783.preview.softr.app/"
-]
+    "http://randy2783.preview.softr.app",
+    "https://randy2783.preview.softr.app",]
 
 app.add_middleware(
     CORSMiddleware,
