@@ -199,19 +199,20 @@ async def header_auth_callback(headers: Dict) -> Optional[cl.User]:
 
 @cl.on_chat_start
 async def start_chat():
+    await cl.Avatar(
+        name="Sincrobank AI",
+        path="public/logo_light.png",
+    ).send()
     files = []
     user = cl.user_session.get("user")
-    airtable_data = await get_airtable_data(user.metadata.get("record"))
+    record = user.metadata.get("record")
+    airtable_data = await get_airtable_data(record)
     remaining_messages = airtable_data["fields"].get("Messaggi rimanenti", 0)
 
     if remaining_messages > 0:
-        await cl.Avatar(
-            name="Sincrobank AI",
-            path="public/logo_light.png",
-        ).send()
         thread = await client.beta.threads.create()
-        cl.user_session.set("messaggi_rimanenti", remaining_messages)
         cl.user_session.set("thread", thread)
+        cl.user_session.set("messaggi_rimanenti", remaining_messages)
         cl.user_session.set("files_ids", [])
         files_ids = cl.user_session.get("files_ids")
         await cl.Message(
