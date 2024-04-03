@@ -89,7 +89,7 @@ async def process_thread_message(
                 await msg.update()
             else:
                 message_references[id] = cl.Message(
-                    author=thread_message.role, content=content_message.text.value
+                    author="Sincrobank AI", content=content_message.text.value
                 )
                 await message_references[id].send()
         elif isinstance(content_message, ImageFileContentBlock):
@@ -106,7 +106,7 @@ async def process_thread_message(
 
             if id not in message_references:
                 message_references[id] = cl.Message(
-                    author=thread_message.role,
+                    author="Sincrobank AI",
                     content="",
                     elements=elements,
                 )
@@ -205,6 +205,10 @@ async def start_chat():
     remaining_messages = airtable_data["fields"].get("Messaggi rimanenti", 0)
 
     if remaining_messages > 0:
+        await cl.Avatar(
+            name="Sincrobank AI",
+            path="public/logo_light.png",
+        ).send()
         thread = await client.beta.threads.create()
         cl.user_session.set("messaggi_rimanenti", remaining_messages)
         cl.user_session.set("thread", thread)
@@ -229,7 +233,8 @@ async def start_chat():
 
         # Let the user know that the system is ready
         await cl.Message(
-            content=f"`{files[0].name}` caricato correttamente. Chiedimi qualcosa!"
+            content=f"`{files[0].name}` caricato correttamente. Chiedimi qualcosa!",
+            author="Sincrobank AI",
         ).send()
     else:
         await cl.Message(
@@ -238,7 +243,7 @@ async def start_chat():
         ).send()
 
 
-@cl.step(name="Sincrobank", type="run", root=True)
+@cl.step(name="Sincrobank AI", type="run", root=True)
 async def run(thread_id: str, human_query: str, file_ids: List[str] = []):
     # Add the message to the thread
     init_message = await client.beta.threads.messages.create(
